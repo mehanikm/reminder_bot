@@ -17,11 +17,12 @@ helpmessage = "Firstly, send me /new command.\n" +\
 
 # Available status
 NONE = 0
-TEXT = 1
-DATE = 2
-WDATE = 3
-CDATE = 4  # Custom date set status
-TIME = 5
+TEXT = 1  # Set task's text
+DATE = 2  # Set task's date
+WDATE = 3  # This week dates
+CDATE = 4  # Custom date set
+HTIME = 5  # Set hour
+MTIME = 6  # Set minute
 
 # Date choice keyboard
 thisweek = KeyboardButton("This week")
@@ -30,13 +31,40 @@ keyb = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
 keyb.add(thisweek, custom)
 
 # Weekdays keyb
-week_keyb = ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+week_keyb = ReplyKeyboardMarkup(resize_keyboard=True)
 for i in range(8):
     week_keyb.add(KeyboardButton(
-        strftime("%A, %d.%m.%y", localtime(time()+3600*24*i))))
+        strftime("%A, %d.%m.%y", localtime(time() + 3600 * 24*i))))
 
-# Pattern to match input date
+# Hour keyboard
+hour_keyb_mess = 0
+hour_keyb = ReplyKeyboardMarkup(resize_keyboard=True)
+row = []
+for i in range(24):
+    i = str(i)
+    if len(i) == 1:
+        i = "0" + i
+    row.append(KeyboardButton(i))
+    if len(row) == 3:
+        hour_keyb.add(*row)
+        row.clear()
+
+# Minutes keyboard
+min_keyb = ReplyKeyboardMarkup(resize_keyboard=True)
+row = []
+for i in range(60):
+    i = str(i)
+    if len(i) == 1:
+        i = "0" + i
+    row.append(KeyboardButton(i))
+    if len(row) == 6:
+        min_keyb.add(*row)
+        row.clear()
+
+
+# Pattern to match input date, time
 date_pattern = compile(r"^\d{1,2}.\d{1,2}.\d{2}$")
+time_pattern = compile(r"^\d{2}$")
 
 TODAY = ".".join(str(date.today()).split("-")[::-1])
 TOMORROW = ".".join(str(date.today() + timedelta(days=1)).split("-")[::-1])

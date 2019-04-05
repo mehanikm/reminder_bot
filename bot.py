@@ -128,7 +128,18 @@ def add_date(message):
     try:
         date, wday = message.text.split()[-1], message.text.split()[0][:-1]
         # Checks date's pattern and range
-        full_date_check(bot, message, date, users, wday)
+        if date_pattern.match(date) and check_date_range(date):
+            bot.send_chat_action(message.chat.id, "typing")
+            add_date_to_task(bot, message, date, users)
+            bot.reply_to(
+                message, f"Ok! Task planned for *{date}, {wday}*\n\n" +
+                "Now, select desired hour and minute to get notification!",
+                parse_mode="Markdown", reply_markup=hour_keyb)
+        # If message does not matches to regexp or smth is out of range, report it to user
+        else:
+            bot.reply_to(message, "Invalid date format/range!\n" +
+                         "Send me date in format\n`DD.MM.YY` " +
+                         "where YY must be in range `19-25`!", parse_mode="Markdown")
     # If user sent whatever else, except text, report it to him
     except:
         bot.send_message(message.chat.id, "Choose one option below!",
@@ -138,26 +149,72 @@ def add_date(message):
 @bot.message_handler(func=lambda message:
                      users.get(str(message.chat.id)).get("status") == CDATE)
 def add_custom_date(message):
+    global hour_keyb_mess
     try:
         date = message.text
         # Checks date's pattern and range
-        full_date_check(bot, message, date, users)
+        if date_pattern.match(date) and check_date_range(date):
+            bot.send_chat_action(message.chat.id, "typing")
+            add_date_to_task(bot, message, date, users)
+            hour_keyb_mess = bot.reply_to(
+                message, f"Ok! Task planned for *{date}*\n\n" +
+                "Now, select desired hour and minute to get notification!",
+                parse_mode="Markdown", reply_markup=hour_keyb)
+        # If message does not matches to regexp or smth is out of range, report it to user
+        else:
+            bot.reply_to(message, "Invalid date format/range!\n" +
+                         "Send me date in format\n`DD.MM.YY` " +
+                         "where YY must be in range `19-25`!", parse_mode="Markdown")
     # If user sent whatever else, except text, report it to him
     except:
         bot.send_message(message.chat.id, "Send me plain text message in format\n" +
                          "`DD.MM.YY`, please!", parse_mode="Markdown")
 
 
-# Add task's time
+# Add task's hour
 @bot.message_handler(func=lambda message:
-                     users.get(str(message.chat.id)).get("status") == TIME)
-def add_time(message):
-    pass
+                     users.get(str(message.chat.id)).get("status") == HTIME)
+def add_hour(message):
+    try:
+        hour = message.text
+        if time_pattern.match(hour) and int(hour) in range(0, 24):
+            bot.send_chat_action(message.chat.id, "typing")
+            newtasks[str(message.chat.id)].time += hour
+            bot.reply_to(message, "Good!\nNow, select minute:",
+                         reply_markup=min_keyb)
+            users[str(message.chat.id)]["status"] = MTIME
+        else:
+            bot.reply_to(
+                message, "Invalid time format :/\nSend hours in range: 0-23")
+    except:
+        bot.send_message(
+            message.chat.id, "Invalid time format :/\nSend hours in range: 0-23")
+
+
+# Add task's minute
+@bot.message_handler(func=lambda message:
+                     users.get(str(message.chat.id)).get("status") == MTIME)
+def add_min(message):
+    try:
+        minute = message.text
+        if time_pattern.match(minute) and int(minute) in range(0, 60):
+            bot.send_chat_action(message.chat.id, "typing")
+            newtasks[str(message.chat.id)].time += ":" + minute
+            bot.reply_to(message, "Final time you set for task:\n" +
+                         f"*{newtasks.get(str(message.chat.id)).time}*",
+                         reply_markup=ReplyKeyboardRemove(selective=True), parse_mode="Markdown")
+        else:
+            bot.reply_to(
+                message, "Invalid time format :/\nSend minutes in range: 0-59")
+    except:
+        bot.send_message(
+            message.chat.id, "Invalid time format :/\nSend minutes in range: 0-59")
+
 
 # Handle [list] command
 @bot.message_handler(commands=['list'])
 def list_tasks(message):
-    chat = message.chat.id
+    pass
 
 
 # Handle [del] command
@@ -176,6 +233,9 @@ if __name__ == '__main__':
         bot.polling(none_stop=True)
     # Save users base on stop
     finally:
+        # print(newtasks["380263681"].text)
+        # print(newtasks["380263681"].date)
+        # print(newtasks["380263681"].time)
         for user in users:
             users[user]["status"] = NONE
         with open("dump.json", "w+") as f:
