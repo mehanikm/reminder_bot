@@ -1,7 +1,7 @@
 from telebot.types import KeyboardButton, ReplyKeyboardMarkup
 from re import compile
 from datetime import date, timedelta
-from time import strftime
+from time import strftime, localtime, time
 
 helpmessage = "Firstly, send me /new command.\n" +\
     "I will reply to your command and guide you:\n\n" +\
@@ -19,15 +19,21 @@ helpmessage = "Firstly, send me /new command.\n" +\
 NONE = 0
 TEXT = 1
 DATE = 2
-CDATE = 3  # Custom date set status
-TIME = 4
+WDATE = 3
+CDATE = 4  # Custom date set status
+TIME = 5
 
 # Date choice keyboard
-today = KeyboardButton("Today")
-tomorrow = KeyboardButton("Tomorrow")
+thisweek = KeyboardButton("This week")
 custom = KeyboardButton("Custom")
 keyb = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-keyb.add(today, tomorrow, custom)
+keyb.add(thisweek, custom)
+
+# Weekdays keyb
+week_keyb = ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+for i in range(8):
+    week_keyb.add(KeyboardButton(
+        strftime("%A, %d.%m.%y", localtime(time()+3600*24*i))))
 
 # Pattern to match input date
 date_pattern = compile(r"^\d{1,2}.\d{1,2}.\d{2}$")

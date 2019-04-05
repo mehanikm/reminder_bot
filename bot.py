@@ -62,9 +62,11 @@ def cancel(message):
         users[str(chat)]["status"] = NONE
         bot.send_message(
             chat, "`Successfully cancelled current operation!`",
-            parse_mode="Markdown")
+            parse_mode="Markdown",
+            reply_markup=ReplyKeyboardRemove(selective=True))
     else:
-        bot.send_message(chat, "`Nothing to cancel...`", parse_mode="Markdown")
+        bot.send_message(chat, "`Nothing to cancel...`", parse_mode="Markdown",
+                         reply_markup=ReplyKeyboardRemove(selective=True))
 
 
 # Handle [new] command
@@ -99,27 +101,16 @@ def add_text(message):
 # Add task's date
 @bot.message_handler(func=lambda message:
                      users.get(str(message.chat.id)).get("status") == DATE)
-def add_date(message):
+def choose_date(message):
     chat = message.chat.id
     try:
-        if "today" in message.text.lower():
-            newtasks[str(chat)].date = TODAY
+        if "week" in message.text.lower():
             bot.reply_to(message,
-                         f"Ok! Your task planned for *today*." +
-                         "Now, send me desired time in format    `23:59`",
-                         reply_markup=ReplyKeyboardRemove(selective=True),
+                         f"Choose date from below:",
+                         reply_markup=week_keyb,
                          parse_mode="Markdown")
-            users[str(chat)]["status"] = TIME
-
-        elif "tomorrow" in message.text.lower():
-            newtasks[str(chat)].date = TOMORROW
-            bot.reply_to(message,
-                         f"Ok! Your task planned for *tomorrow*.\n\n" +
-                         "Now, send me desired time in format    `23:59`",
-                         reply_markup=ReplyKeyboardRemove(selective=True),
-                         parse_mode="Markdown")
-            users[str(chat)]["status"] = TIME
-
+            users[str(chat)]["status"] = WDATE
+        # If user pressed [custom] button or sent whatever
         else:
             bot.reply_to(message, "Send me desired date in format\n`DD.MM.YY` " +
                          "where YY must be in range `19-25`",
@@ -130,37 +121,30 @@ def add_date(message):
         bot.send_message(chat, "I can't distinguish that...")
 
 
+# Add date from reply keyboard
+@bot.message_handler(func=lambda message:
+                     users.get(str(message.chat.id)).get("status") == WDATE)
+def add_date(message):
+    try:
+        date, wday = message.text.split()[-1], message.text.split()[0][:-1]
+        # Checks date's pattern and range
+        full_date_check(bot, message, date, users, wday)
+    # If user sent whatever else, except text, report it to him
+    except:
+        bot.send_message(message.chat.id, "Choose one option below!",
+                         parse_mode="Markdown")
+
 # Add custom task's date
 @bot.message_handler(func=lambda message:
                      users.get(str(message.chat.id)).get("status") == CDATE)
 def add_custom_date(message):
-    chat = message.chat.id
     try:
-        # Check if date matches to pattern
-        if date_pattern.match(message.text):
-            # Chech range of year, month and day of month
-            if check_date_range(message):
-                bot.send_chat_action(chat, "typing")
-                date = format_date(message.text)
-                newtasks[str(chat)].date = date
-                bot.reply_to(
-                    message, f"Ok! Task planned for *{date}*\n\n" +
-                    "Now, send me desired time in format    `23:59`",
-                    parse_mode="Markdown")
-                users[str(chat)]["status"] = TIME
-            # If year, month or day is out of range, report it to user
-            else:
-                bot.reply_to(message, "Invalid date range!\n" +
-                             "Send me date in format\n`DD.MM.YY`\n" +
-                             "where YY must be in range `19-25`!", parse_mode="Markdown")
-        # If message does not matches to regexp, report it to user
-        else:
-            bot.reply_to(message, "Invalid date format!\n" +
-                         "Send me date in format\n`DD.MM.YY` " +
-                         "where YY must be in range `19-25`!", parse_mode="Markdown")
+        date = message.text
+        # Checks date's pattern and range
+        full_date_check(bot, message, date, users)
     # If user sent whatever else, except text, report it to him
     except:
-        bot.send_message(chat, "Send me plain text message in format\n" +
+        bot.send_message(message.chat.id, "Send me plain text message in format\n" +
                          "`DD.MM.YY`, please!", parse_mode="Markdown")
 
 
