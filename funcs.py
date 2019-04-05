@@ -42,7 +42,9 @@ def year_f(y: int) -> dict:
 def add_date_to_task(bot, message, date, users, wday=0):
     chat = message.chat.id
     date = format_date(date)
-    newtasks[str(chat)].date = date
+    newtasks[str(chat)]["date"] = date
+    if wday:
+        newtasks[str(chat)]["wday"] = wday
     users[str(chat)]["status"] = HTIME
 
 

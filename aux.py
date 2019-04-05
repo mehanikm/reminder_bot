@@ -23,6 +23,10 @@ WDATE = 3  # This week dates
 CDATE = 4  # Custom date set
 HTIME = 5  # Set hour
 MTIME = 6  # Set minute
+REP = 7  # Choose if to repeat
+REPN = 8  # Select number of repeats
+TGAP = 9  # Select time gap for repeats
+FIN = 10  # Confirm task and finish
 
 # Date choice keyboard
 thisweek = KeyboardButton("This week")
@@ -37,7 +41,6 @@ for i in range(8):
         strftime("%A, %d.%m.%y", localtime(time() + 3600 * 24*i))))
 
 # Hour keyboard
-hour_keyb_mess = 0
 hour_keyb = ReplyKeyboardMarkup(resize_keyboard=True)
 row = []
 for i in range(24):
@@ -61,6 +64,14 @@ for i in range(60):
         min_keyb.add(*row)
         row.clear()
 
+# Repeat keyboard
+repeat_keyb = ReplyKeyboardMarkup()
+repeat_keyb.add(KeyboardButton("Yes"), KeyboardButton("No"))
+
+# Confirm keyboard
+confirm_keyb = ReplyKeyboardMarkup()
+confirm_keyb.add(KeyboardButton("Confirm"), KeyboardButton("Cancel"))
+
 
 # Pattern to match input date, time
 date_pattern = compile(r"^\d{1,2}.\d{1,2}.\d{2}$")
@@ -73,15 +84,6 @@ WEEKDAY = strftime("%A")
 # New tasks
 newtasks = dict()
 
-
-class Task:
-    def __init__(self):
-        self.text = ""
-        self.date = ""
-        self.time = ""
-        self.repeat = False
-        self.repeats = 0
-        self.time_gap = 0  # in minutes
 
 # Users data structure
 # users = {user:{status:st, tasks=[]}}

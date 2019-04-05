@@ -76,7 +76,8 @@ def new_task(message):
     bot.reply_to(message, "Great! Now, send me your *task*.",
                  parse_mode="Markdown")
     # Add new task to dict with all users new tasks
-    newtasks[str(chat)] = Task()
+    newtasks[str(chat)] = dict(text="", date="", wday="", time="",
+                               repeat=False, repeats=0, time_gap=0)
     # Change user's status so he can proceed to next step(Add text)
     users[str(chat)]["status"] = TEXT
 
@@ -88,7 +89,7 @@ def add_text(message):
     chat = message.chat.id
     try:
         # Try to parse message's text to new task
-        newtasks[str(chat)].text = message.text
+        newtasks[str(chat)]["text"] = message.text
         # Change user's status so he can proceed to next step (Add date)
         users[str(chat)]["status"] = DATE
         bot.reply_to(message, "Now you are can add date to your task!" +
@@ -130,7 +131,7 @@ def add_date(message):
         # Checks date's pattern and range
         if date_pattern.match(date) and check_date_range(date):
             bot.send_chat_action(message.chat.id, "typing")
-            add_date_to_task(bot, message, date, users)
+            add_date_to_task(bot, message, date, users, wday)
             bot.reply_to(
                 message, f"Ok! Task planned for *{date}, {wday}*\n\n" +
                 "Now, select desired hour and minute to get notification!",
@@ -149,14 +150,13 @@ def add_date(message):
 @bot.message_handler(func=lambda message:
                      users.get(str(message.chat.id)).get("status") == CDATE)
 def add_custom_date(message):
-    global hour_keyb_mess
     try:
         date = message.text
         # Checks date's pattern and range
         if date_pattern.match(date) and check_date_range(date):
             bot.send_chat_action(message.chat.id, "typing")
             add_date_to_task(bot, message, date, users)
-            hour_keyb_mess = bot.reply_to(
+            bot.reply_to(
                 message, f"Ok! Task planned for *{date}*\n\n" +
                 "Now, select desired hour and minute to get notification!",
                 parse_mode="Markdown", reply_markup=hour_keyb)
@@ -179,7 +179,7 @@ def add_hour(message):
         hour = message.text
         if time_pattern.match(hour) and int(hour) in range(0, 24):
             bot.send_chat_action(message.chat.id, "typing")
-            newtasks[str(message.chat.id)].time += hour
+            newtasks[str(message.chat.id)]["time"] = hour
             bot.reply_to(message, "Good!\nNow, select minute:",
                          reply_markup=min_keyb)
             users[str(message.chat.id)]["status"] = MTIME
@@ -199,10 +199,12 @@ def add_min(message):
         minute = message.text
         if time_pattern.match(minute) and int(minute) in range(0, 60):
             bot.send_chat_action(message.chat.id, "typing")
-            newtasks[str(message.chat.id)].time += ":" + minute
+            newtasks[str(message.chat.id)]["time"] += ":" + minute
             bot.reply_to(message, "Final time you set for task:\n" +
-                         f"*{newtasks.get(str(message.chat.id)).time}*",
-                         reply_markup=ReplyKeyboardRemove(selective=True), parse_mode="Markdown")
+                         f"*{newtasks.get(str(message.chat.id)).get('time')}*\n\n" +
+                         "Now select if to repeat notification.",
+                         reply_markup=repeat_keyb, parse_mode="Markdown")
+            users[str(message.chat.id)]["status"] = REP
         else:
             bot.reply_to(
                 message, "Invalid time format :/\nSend minutes in range: 0-59")
@@ -211,16 +213,82 @@ def add_min(message):
             message.chat.id, "Invalid time format :/\nSend minutes in range: 0-59")
 
 
+# Choose if to repeat notification multiple times
+@bot.message_handler(func=lambda message:
+                     users.get(str(message.chat.id)).get("status") == REP)
+def ifrepeat(message):
+    try:
+        if "yes" in message.text.lower():
+            pass  # TODO add case when user wants to repeat notification
+            users[str(message.chat.id)]["status"] = REPN
+        else:
+            bot.reply_to(message, "Ok, just confirm task!\n" +
+                         f"Here it is:\n\n*{newtasks[str(message.chat.id)]['text']}*\n" +
+                         f"*{newtasks[str(message.chat.id)]['time']}*    " +
+                         f"*{newtasks[str(message.chat.id)]['date']}*    " +
+                         f"_{newtasks[str(message.chat.id)]['wday']}_",
+                         reply_markup=confirm_keyb, parse_mode="Markdown")
+            users[str(message.chat.id)]["status"] = FIN
+    except:
+        bot.send_message(
+            message.chat.id, "I can't find answer in your message...")
+
+
+# Select how many times to repeat
+@bot.message_handler(func=lambda message:
+                     users.get(str(message.chat.id)).get("status") == REPN)
+def repeats(message):
+    pass  # TODO Build func to set number of repeats
+
+
+# Set timegap for repeats
+@bot.message_handler(func=lambda message:
+                     users.get(str(message.chat.id)).get("status") == TGAP)
+def timegap(message):
+    pass  # TODO Build func to set timegap for repeats
+
+
+# Confirmation
+@bot.message_handler(func=lambda message:
+                     users.get(str(message.chat.id)).get("status") == FIN)
+def confirm(message):
+    try:
+        if "confirm" in message.text.lower():
+            users[str(message.chat.id)]["tasks"].append(
+                newtasks[str(message.chat.id)])
+            newtasks.pop(str(message.chat.id), "")
+            users[str(message.chat.id)]["status"] = NONE
+            bot.reply_to(message, "Well done!\nSuccessfully added new task to your list!\n" +
+                         "Use /list to list all your tasks.", reply_markup=ReplyKeyboardRemove(selective=True))
+        else:
+            bot.reply_to(message, "Okay, I cancelled your task...", parse_mode="Markdown",
+                         reply_markup=ReplyKeyboardRemove(selective=True))
+    except:
+        pass  # TODO Write exepct case for this handler
+
+
 # Handle [list] command
 @bot.message_handler(commands=['list'])
 def list_tasks(message):
-    pass
+    if not users[str(message.chat.id)]["tasks"]:
+        bot.send_message(
+            message.chat.id, "`Your tasklist is empty...`", parse_mode="Markdown")
+
+    mess = ""
+    for task in users[str(message.chat.id)]["tasks"]:
+        mess += f"*{task['text']}*\n" +\
+            f"*{task['time']}*    " +\
+            f"*{task['date']}*    " +\
+            f"_{task['wday']}_"+"\n\n"
+    bot.send_message(message.chat.id, mess, parse_mode="Markdown")
 
 
 # Handle [del] command
 @bot.message_handler(commands=['del'])
 def del_task(message):
-    pass
+    pass  # TODO Build func to let user to delete tasks
+
+# TODO Build func to delete tasks if expired
 
 
 if __name__ == '__main__':
@@ -233,9 +301,6 @@ if __name__ == '__main__':
         bot.polling(none_stop=True)
     # Save users base on stop
     finally:
-        # print(newtasks["380263681"].text)
-        # print(newtasks["380263681"].date)
-        # print(newtasks["380263681"].time)
         for user in users:
             users[user]["status"] = NONE
         with open("dump.json", "w+") as f:
