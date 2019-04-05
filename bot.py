@@ -1,6 +1,8 @@
-import telebot
 import json
 from time import sleep
+
+import telebot
+
 from config import *
 
 # Initialize bot with given token
@@ -35,23 +37,46 @@ def start(message):
 # Handle [help] command
 @bot.message_handler(commands=['help'])
 def help(message):
+    chat = message.chat.id
+    sleep(0.1)
+    bot.send_chat_action(chat, 'typing')
     sleep(0.5)
-    bot.send_chat_action(message.chat.id, 'typing')
-    sleep(1)
-    bot.send_message(message.chat.id, 'Text after help command')
+    bot.send_message(chat, 'Here is guide to use me:')
+    sleep(0.1)
+    bot.send_chat_action(chat, 'typing')
+    sleep(0.5)
+    bot.send_message(chat, parse_mode="Markdown",
+                     text=helpmessage)
+
+
+# Handle [cancel] command
+@bot.message_handler(commands=['cancel'])
+def cancel(message):
+    chat = message.chat.id
+    if users.get(str(chat)).get("status"):
+        users[str(chat)]["status"] = NONE
+        bot.send_message(
+            chat, "`Successfully cancelled current operation!`",
+            parse_mode="Markdown")
+    else:
+        bot.send_message(chat, "`Nothing to cancel...`", parse_mode="Markdown")
 
 
 # Handle [new] command
 @bot.message_handler(commands=['new'])
 def new_task(message):
+    chat = message.chat.id
     newtask = dict()
+    users[str(chat)]["status"] = TEXT
+    bot.send_message(chat, "Now you can add text")
 
 
 # Add task text
 @bot.message_handler(func=lambda message:
-                     users_status.get(message.chat.id) == TEXT)
+                     users.get(str(message.chat.id)).get("status") == TEXT)
 def add_text(message):
-    pass
+    chat = message.chat.id
+    bot.send_message(chat, "Now you are adding text")
 
 
 # Handle [list] command
