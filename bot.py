@@ -9,9 +9,11 @@ from telebot.types import ReplyKeyboardRemove
 from config import token
 from funcs import *
 from aux import *
+from dbwork import *
 
 # Initialize bot with given token
 bot = telebot.TeleBot(token)
+# TODO Rework all blocks, exept: /start, /help, /cancel
 
 
 # Handle [start] command
@@ -21,19 +23,23 @@ def start(message):
     # Greet user
     sleep(0.1)
     bot.send_chat_action(chat, 'typing')
-    sleep(0.5)
+    sleep(0.3)
     bot.send_message(chat, f'Hey, {message.from_user.first_name}!')
     sleep(0.1)
     bot.send_chat_action(chat, 'typing')
-    sleep(0.5)
+    sleep(0.3)
 
     # If really new user, add him to base
-    if str(chat) not in users:
-        users[str(chat)] = dict()
-        users[str(chat)]["status"] = 0
-        users[str(chat)]["tasks"] = []
-        bot.send_message(
-            chat, "I've added you to my users database!")
+    if str(chat) not in get_users():
+        # Try to add user
+        if add_user(chat):
+            bot.send_message(
+                chat, "I've added you to my users database!")
+        # Else if can't add
+        else:
+            bot.send_message(
+                chat, "Something went wrong, can't add you to my database...")
+    # Else if user already exists
     else:
         bot.send_message(
             chat, 'You are already in my base of users!')
@@ -58,12 +64,21 @@ def help(message):
 @bot.message_handler(commands=['cancel'])
 def cancel(message):
     chat = message.chat.id
-    if users.get(str(chat)).get("status"):
-        users[str(chat)]["status"] = NONE
-        bot.send_message(
-            chat, "`Successfully cancelled current operation!`",
-            parse_mode="Markdown",
-            reply_markup=ReplyKeyboardRemove(selective=True))
+    # Check if this command makes sense
+    if get_user_status(chat):
+        # Set user's status to initial
+        if set_user_status(chat, NONE):
+            bot.send_message(
+                chat, "`Successfully cancelled current operation!`",
+                parse_mode="Markdown",
+                reply_markup=ReplyKeyboardRemove(selective=True))
+        # Else if can't cancel
+        else:
+            bot.send_message(
+                chat, "Something went wrong, can't cancel your action...",
+                parse_mode="Markdown",
+                reply_markup=ReplyKeyboardRemove(selective=True))
+    # Else if nothing to cancel
     else:
         bot.send_message(chat, "`Nothing to cancel...`", parse_mode="Markdown",
                          reply_markup=ReplyKeyboardRemove(selective=True))
@@ -147,6 +162,8 @@ def add_date(message):
                          parse_mode="Markdown")
 
 # Add custom task's date
+
+
 @bot.message_handler(func=lambda message:
                      users.get(str(message.chat.id)).get("status") == CDATE)
 def add_custom_date(message):
@@ -272,15 +289,15 @@ def confirm(message):
 def list_tasks(message):
     if not users[str(message.chat.id)]["tasks"]:
         bot.send_message(
-            message.chat.id, "`Your tasklist is empty...`", parse_mode="Markdown")
-
-    mess = ""
-    for task in users[str(message.chat.id)]["tasks"]:
-        mess += f"*{task['text']}*\n" +\
-            f"*{task['time']}*    " +\
-            f"*{task['date']}*    " +\
-            f"_{task['wday']}_"+"\n\n"
-    bot.send_message(message.chat.id, mess, parse_mode="Markdown")
+            message.chat.id, "`You don't have any tasks...`", parse_mode="Markdown")
+    else:
+        mess = ""
+        for task in users[str(message.chat.id)]["tasks"]:
+            mess += f"*{task['text']}*\n" +\
+                f"*{task['time']}*    " +\
+                f"*{task['date']}*    " +\
+                f"_{task['wday']}_"+"\n\n"
+        bot.send_message(message.chat.id, mess, parse_mode="Markdown")
 
 
 # Handle [del] command
@@ -305,3 +322,4 @@ if __name__ == '__main__':
             users[user]["status"] = NONE
         with open("dump.json", "w+") as f:
             json.dump(users, f)
+        db.close()
